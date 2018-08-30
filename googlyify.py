@@ -27,21 +27,16 @@ if not json_filename:
     print("Uploading to S3...")
     with open(filename, "rb") as fh:
         s3.put_object(
-            Body=fh,
-            Bucket=BUCKET,
-            Key="{}/{}".format(PREFIX, filename)
-        )
+            Body=fh, Bucket=BUCKET, Key="{}/{}".format(PREFIX, filename))
 
     print("Processing with rekognition...")
     rekognition = boto3.client("rekognition")
-    result = rekognition.detect_faces(
-        Image={
-            "S3Object": {
-                'Bucket': BUCKET,
-                'Name': '{}/{}'.format(PREFIX, filename)
-            }
+    result = rekognition.detect_faces(Image={
+        "S3Object": {
+            'Bucket': BUCKET,
+            'Name': '{}/{}'.format(PREFIX, filename)
         }
-    )
+    })
     fh = open('output.json', 'w')
     json.dump(result, fh)
     fh.close()
@@ -59,8 +54,8 @@ for face in result['FaceDetails']:
     count += 1
     left_eye = get_landmark('eyeLeft', face['Landmarks'], width, height)
     right_eye = get_landmark('eyeRight', face['Landmarks'], width, height)
-    dist = math.sqrt(((right_eye[0] - left_eye[0])**2)
-                     + ((right_eye[1] - left_eye[1])**2)) / 2
+    dist = math.sqrt(((right_eye[0] - left_eye[0])**2) + (
+        (right_eye[1] - left_eye[1])**2)) / 2
     print("l, r: ", left_eye, right_eye)
     print("dist: ", dist)
     print("brightness: ", face['Quality']['Brightness'])
@@ -68,18 +63,10 @@ for face in result['FaceDetails']:
     print()
     for l in ['eyeLeft', 'eyeRight']:
         (x, y) = get_landmark(l, face['Landmarks'], width, height)
-        draw.ellipse([
-            x - dist,
-            y - dist,
-            x + dist,
-            y + dist
-        ], ImageColor.getrgb("white"))
-        draw.ellipse([
-            x - (dist / 2),
-            y,
-            x + (dist / 2),
-            y + dist
-        ], ImageColor.getrgb("black"))
+        draw.ellipse([x - dist, y - dist, x + dist, y + dist],
+                     ImageColor.getrgb("white"))
+        draw.ellipse([x - (dist / 2), y, x + (dist / 2), y + dist],
+                     ImageColor.getrgb("black"))
 
 if count:
     print("Drew eyes on {} face(s)".format(count))
