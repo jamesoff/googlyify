@@ -2,8 +2,9 @@ import json
 import math
 import os
 import sys
+
 import boto3
-from PIL import Image, ImageDraw, ImageColor
+from PIL import Image, ImageColor, ImageDraw
 
 
 def get_landmark(which, landmarks, width, height):
