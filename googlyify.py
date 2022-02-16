@@ -1,45 +1,36 @@
-import json
 import math
-import os
-import sys
+from typing import BinaryIO, Optional, Tuple
 
 import boto3
+import typer
 from PIL import Image, ImageColor, ImageDraw
 
 
-def get_landmark(which, landmarks, width, height):
+def _get_landmark(
+    which: str, landmarks: dict, width: int, height: int
+) -> Tuple[Optional[int], Optional[int]]:
+    """Get the coordinates for a type of landmark"""
     for landmark in landmarks:
         if landmark["Type"] == which:
             return (landmark["X"] * width, landmark["Y"] * height)
     return (None, None)
 
 
-def upload_to_s3(filename, bucket, prefix):
-    s3 = boto3.client("s3")
-    print("Uploading to S3...")
-    with open(filename, "rb") as fh:
-        s3.put_object(Body=fh, Bucket=bucket, Key="{}/{}".format(prefix, filename))
+def process_image(in_file: BinaryIO, out_file: BinaryIO, face_details: dict):
+    """Draw eyes on an image based on Rekognition results"""
+    image = Image.open(in_file)
 
-
-def identify_faces(bucket, key):
-    print("Processing with rekognition...")
-    rekognition = boto3.client("rekognition")
-    result = rekognition.detect_faces(
-        Image={"S3Object": {"Bucket": bucket, "Name": key}}
-    )
-    return result
-
-
-def process_image(filename, face_details):
-    im = Image.open(filename)
-
-    width, height = im.size
-    draw = ImageDraw.Draw(im)
+    width, height = image.size
+    draw = ImageDraw.Draw(image)
     count = 0
     for face in face_details:
         count += 1
-        left_eye = get_landmark("eyeLeft", face["Landmarks"], width, height)
-        right_eye = get_landmark("eyeRight", face["Landmarks"], width, height)
+        left_eye = _get_landmark("eyeLeft", face["Landmarks"], width, height)
+        right_eye = _get_landmark("eyeRight", face["Landmarks"], width, height)
+        if left_eye[0] is None or left_eye[1] is None:
+            continue
+        if right_eye[0] is None or right_eye[1] is None:
+            continue
         dist = (
             math.sqrt(
                 ((right_eye[0] - left_eye[0]) ** 2)
@@ -54,6 +45,9 @@ def process_image(filename, face_details):
         print()
         for eye in [left_eye, right_eye]:
             (x, y) = eye
+            if x is None or y is None:
+                # already guarded against above, but need to convince the type checker
+                continue
             draw.ellipse(
                 [x - dist, y - dist, x + dist, y + dist], ImageColor.getrgb("white")
             )
@@ -61,31 +55,24 @@ def process_image(filename, face_details):
                 [x - (dist / 2), y, x + (dist / 2), y + dist],
                 ImageColor.getrgb("black"),
             )
-
     if count:
-        print("Drew eyes on {} face(s)".format(count))
+        print(f"Drew eyes on {count} face(s)")
+    image.save(out_file)
 
-    im.save("output.jpg")
+
+def main(infile: str, outfile: str):
+    """Draw googly eyes on faces in an image"""
+
+    with open(infile, "rb") as in_file_handle:
+        rekognition = boto3.client("rekognition")
+        result = rekognition.detect_faces(
+            Image={"Bytes": in_file_handle.read()}
+        )
+        in_file_handle.seek(0)
+        with open(outfile, "wb") as out_file_handle:
+            process_image(in_file_handle, out_file_handle, result["FaceDetails"])
+            print(f"Save to {outfile}")
 
 
-BUCKET = os.environ["GOOGLYIFY_BUCKET"]
-PREFIX = os.environ["GOOGLYIFY_PREFIX"]
-
-filename = sys.argv[1]
-try:
-    json_filename = sys.argv[2]
-except:
-    json_filename = None
-
-if not json_filename:
-    upload_to_s3(filename, BUCKET, PREFIX)
-    result = identify_faces(BUCKET, "{}/{}".format(PREFIX, filename))
-    fh = open("output.json", "w")
-    json.dump(result, fh)
-    fh.close()
-else:
-    fh = open(json_filename, "r")
-    result = json.load(fh)
-    fh.close()
-
-process_image(filename, result["FaceDetails"])
+if __name__ == "__main__":
+    typer.run(main)
