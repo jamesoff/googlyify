@@ -13,7 +13,7 @@ Draw googly eyes on people using Amazon Rekognition.
 1. Clone repo
 1. If you don't intend to work on the code
     1. If you have Poetry installed, `poetry install --no-dev`
-    1. Else create a virtualenv and install with pip: `python -m virtualenv .venv && source .venv/bin/activate && pip install .`
+    1. Else create a virtualenv and install with pip: `python -m venv .venv && source .venv/bin/activate && pip install .`
 1. else if you intend to work on the code, `poetry install`
 
 ## Usage
