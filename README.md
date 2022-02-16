@@ -2,6 +2,8 @@
 
 Draw googly eyes on people using Amazon Rekognition.
 
+![sample output](sample/crowd-output.jpg)
+
 ## Prerequisites
 
 * AWS credentials configured
